@@ -1,113 +1,252 @@
-import Image from "next/image";
+"use client"
+import React from "react"
+import { CameraIcon, CheckIcon } from '@heroicons/react/24/outline'
+import swal from "sweetalert"
+import axios from "axios"
 
 export default function Home() {
+  const [users, setUsers] = React.useState<Array<object>>()
+  const [thumbnail, setThumbnail] = React.useState<string|null>(null)
+  const [quote, setQuote] = React.useState<string|null>(null)
+  const [closedTime, setClosedTime] = React.useState<boolean>(false)
+  const [userId, setUserId] = React.useState<any>()
+  const [kegiatan, setKegiatan] = React.useState<string>()
+  const [latitude, setLatitude] = React.useState<any>()
+  const [longitude, setLongitude] = React.useState<any>()
+  const [showWebcamCard, setWebcamCard] = React.useState<boolean>(false)
+  const [showAbsenCard, setAbsenCard] = React.useState<boolean>(false)
+  const [showCaptureBtn, setCaptureBtn] = React.useState<boolean>(false)
+  const [showAbsenBtn, setAbsenBtn] = React.useState<boolean>(true)
+  const [showAbsenMasukSuccess, setAbsenMasukSuccess] = React.useState<boolean>(false)
+  const [captureStream, setCaptureStream] = React.useState<boolean>(true)
+  const [captureResult, setCaptureResult] = React.useState<boolean>(false)
+  const [captureResultSrc, setCaptureResultSrc] = React.useState<any>(true)
+
+  const handleAbsenMasuk = () => {
+    let userLocation = navigator.geolocation
+
+        if(userLocation) {
+            userLocation.getCurrentPosition(function(data) {
+                setLatitude(data.coords.latitude)
+                setLongitude(data.coords.longitude)
+            }, function() {
+                console.log('error')
+            })
+        } else {
+            swal({
+              title: 'Error',
+              icon: 'error',
+              text: 'Browser anda tidak mendukung',
+              timer: 2000
+            })
+        }
+
+        navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia
+
+        if (navigator.getUserMedia) {
+            navigator.getUserMedia({ video: true }, async function handleVideo(stream: any) {
+              setWebcamCard(true)
+              setCaptureBtn(true)
+              const video = window.document.querySelector("#video-webcam")
+              video.srcObject = stream
+          }, function videoError(e: any) {
+              swal({
+                title: 'Error',
+                icon: 'error',
+                text: 'Izinkan menggunakan webcam untuk absen!',
+                timer: 2000
+              })
+              console.log(e)
+          })
+        }
+  }
+
+  const handleAbsenKeluar = () => {
+    if ( userId ) {
+      axios.put('/api/absen', {
+        user_id: userId,
+        kegiatan: kegiatan
+      }).then((response) => {
+        setAbsenCard(false)
+        if ( response.data.error ) {
+          swal({
+            icon: 'error',
+            title: 'Error',
+            text: response.data.error,
+            timer: 2000
+          })
+        }
+        if ( response.data.message ) {
+          setAbsenBtn(false)
+          setClosedTime(false)
+          setAbsenMasukSuccess(true)
+        }
+      })
+    } else {
+      setAbsenCard(false)
+      swal({
+        icon: 'error',
+        title: 'Error',
+        text: 'Harap memilih nama',
+        timer: 2000
+      })
+    }
+  }
+
+  const hanldeCapture = () => {
+    if ( userId && longitude && latitude ) {
+      const video: any = window.document.querySelector('#video-webcam')
+      let context
+
+      const width = video.offsetWidth, height = video.offsetHeight
+
+      let canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      context = canvas.getContext('2d')
+      context?.drawImage(video, 0, 0, width, height)
+
+      setCaptureStream(false)
+      setCaptureResultSrc(canvas.toDataURL('image/png'))
+      console.log(canvas.toDataURL('image/png'))
+      setCaptureResult(true)
+      setCaptureBtn(false)
+
+      const data = {
+          user_id: userId,
+          picture: canvas.toDataURL('image/png'),
+          latitude: latitude,
+          longitude: longitude
+      }
+
+      axios.post('/api/absen', data, {
+        headers: {
+          "Content-Type": "application/json",
+          'Access-Control-Allow-Origin': '*',
+          }
+      }).then((response) => {
+        setWebcamCard(false)
+        if ( response.data?.error ) {
+          swal({
+            icon: 'error',
+            title: 'Error',
+            text: response.data?.error,
+            timer: 2000
+          }).then(() => {
+              window.location.reload()
+          })
+        }
+        if ( response.data?.message ) {
+          setAbsenBtn(false)
+          setAbsenMasukSuccess(true)
+        }
+      })
+    }
+  }
+
+  React.useEffect(() => {
+    axios.get('/api/contents').then((response) => {
+      if ( response.data ) {
+        setUsers(response.data.users)
+        setThumbnail(response.data.thumbnail)
+        setQuote(response.data.quote)
+        setClosedTime(response.data.closed_time)
+      }
+    })
+  }, [])
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="w-full h-screen bg-slate-200 overflow-hidden flex justify-center items-center p-4">
+        <div className="w-full sm:w-[45%] bg-light p-8 rounded-xl shadow-xl">
+            <div className="flex justify-center">
+                {
+                  thumbnail ? (
+                    <img src={thumbnail ?? ""} alt="" className="h-[250px] aspect-square rounded-lg object-cover object-center" />
+                  ) : (
+                    <div className="aspect-square h-[250px] rounded-lg flex justify-center items-center bg-slate-400 animate-pulse"></div>
+                  )
+                }
+            </div>
+            <div className="mt-2 w-full flex justify-center">
+              {
+                quote ? (
+                  <q className="text-center font-medium">{ quote }</q>
+                ) : (
+                  <h1>Loading...</h1>
+                )
+              }
+            </div>
+            <div className="mt-4">
+                <select name="name" id="name" className="user-id outline-none w-full px-4 py-3 rounded-md border-[1px] border-slate-300" defaultValue={"default"} onChange={(e) => {setUserId(e.target.value)}}>
+                    <option value="default" disabled>Nama Anak Magang</option>
+                    {
+                      users?.map((value: any, index) => (
+                        <option key={index} value={value.id}>{ value.username }</option>
+                      ))
+                    }
+                </select>
+            </div>
+            <div className="mt-3">
+                {
+                  showAbsenBtn && (
+                    <button className="absen-btn w-full py-2.5 border-[1px] border-primary bg-primary font-bold text-light rounded-md text-xl bg-opacity-90 transition ease-in-out hover:bg-opacity-100" onClick={handleAbsenMasuk}>Absen Masuk</button>
+                  )
+                }
+                {
+                  showAbsenMasukSuccess && (
+                    <h1 className="absen-success w-full py-2.5 font-medium text-green-500 rounded-md text-xl bg-opacity-90 transition ease-in-out border-[1px] border-green-500 flex gap-2 justify-center items-center">
+                      <span>Absen Berhasil</span>
+                      <CheckIcon className="w-8 h-8" />
+                  </h1>
+                  )
+                }
+                {
+                  closedTime && (
+                    <button className="mt-2 w-full py-2.5 border-[1px] border-slate-500 bg-slate-500 font-bold text-light rounded-md text-xl bg-opacity-90 transition ease-in-out hover:bg-opacity-100" onClick={() => {setAbsenCard(state => !state)}}>Absen Keluar</button>
+                  )
+                }
+            </div>
+
+            {/* Webcam */}
+            <div className={`${showWebcamCard ? 'flex' : 'hidden'} w-full h-screen bg-dark bg-opacity-40 fixed top-0 left-0 justify-center items-center`}>
+              <div className="w-full sm:w-1/3 p-8 bg-light rounded-xl shadow-md">
+                  {
+                    captureStream && (
+                      <video autoPlay={true} id="video-webcam" className="w-full aspect-square object-cover object-center">
+                          Browsermu tidak mendukung bro, upgrade donk!
+                      </video>
+                    )
+                  }
+                  {
+                    captureResult && (
+                      <img src={captureResultSrc} alt="" className="w-full aspect-square object-cover object-center" />
+                    )
+                  }
+                  {
+                    showCaptureBtn && (
+                      <button className="w-full py-3 rounded-md bg-primary font-medium text-light mt-4 bg-opacity-90 transition ease-in-out hover:bg-opacity-100 flex gap-3 justify-center items-center" onClick={hanldeCapture}>
+                        <CameraIcon className="w-7 h-7" />
+                        <span>Ambil Foto</span>
+                    </button>
+                    )
+                  }
+              </div>
+          </div>
+
+          {/* Absen Keluar */}
+          {
+            showAbsenCard && (
+              <div className={`w-full flex h-screen bg-dark bg-opacity-40 fixed top-0 left-0 justify-center items-center`}>
+                <div className="w-full sm:w-1/3 p-8 bg-light rounded-xl shadow-md">
+                  <textarea placeholder="Kegiatan Hari Ini" className="w-full outline-none p-4 rounded-md border-[1px] border-slate-300 transition ease-in-out focus:border-primary" rows={5} onChange={(e) => {setKegiatan(e.target.value)}}></textarea>
+                  <button className="mt-4 w-full py-3 rounded-md bg-primary font-bold text-light" onClick={handleAbsenKeluar}>Kirim Kegiatan</button>
+                </div>
+              </div>
+            )
+          }
+
         </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    </div>
+  )
 }
